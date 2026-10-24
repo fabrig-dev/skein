@@ -286,10 +286,18 @@ fn empty_rows(rows: u32) -> Box<[Box<[u8]>]> {
     values.into_boxed()
 }
 
+fn branch_rows(rows: u32) -> Box<[Box<[u8]>]> {
+    let mut names = skein_lib::List::with_capacity(rows);
+    for _ in 0..rows {
+        names.push(Box::from(&b"main"[..])).expect("fixture rows");
+    }
+    names.into_boxed()
+}
+
 const ROW_CASES: usize = 4; // branches, labels, reviewers, protection contexts
 fn row_reads() -> [(&'static str, Read); ROW_CASES] {
     [
-        ("branches", Read::Branches),
+        ("branches", Read::Branches { prefix: Box::from(&b"m"[..]) }),
         ("labels", Read::Item { number: 9, after: 0 }),
         ("reviewers", Read::Pull { number: 9 }),
         ("protection", Read::Protection { branch: Box::from(&b"kit"[..]) }),
@@ -303,7 +311,7 @@ fn row_cases(rows: u32) -> [(&'static str, Read, Answer); ROW_CASES] {
         reviewers.push(reviewer).expect("reviewer fixture fits");
     }
     let answers = [
-        Answer::Branches(empty_rows(rows)),
+        Answer::Branches(branch_rows(rows)),
         Answer::Item { item, comments: Box::new([]), more: false },
         Answer::Pull(super::fixtures::keep::reviewed_pull(reviewers.into_boxed())),
         Answer::Protection(Some(api::Protection {
@@ -462,4 +470,29 @@ fn an_answered_busy_makes_a_write_uncertain() {
     assert_eq!(h.outcomes.as_slice(), &[(1, crate::Outcome::Uncertain)]);
     assert_eq!(h.one().op, api::Op::Read(Read::Item { number: 9, after: 0 }));
     assert_eq!(h.writes, 1);
+}
+
+#[test]
+fn branch_prefix_round_trips_in_the_call_and_rejects_foreign_answers() {
+    let mut h = Harness::new(LIMITS);
+    let read = Read::Branches { prefix: Box::from(&b"temper/"[..]) };
+    h.step(Event::Read { owner: Token::new(1), repository: REPO, read: read.clone() });
+    let sent = h.one();
+    let op = &sent.op;
+    assert_eq!(op, &api::Op::Read(read));
+    assert_eq!(skein_forge::measure::op(op), Some(7));
+    assert_eq!(
+        h.answer(&sent, 1, Ok(Answer::Branches(Box::new([Box::from(&b"foreign/main"[..])])))).as_ref(),
+        &[Request::Read { owner: Token::new(1), result: Err(Error::InvalidAnswer) }]
+    );
+}
+
+#[test]
+fn an_empty_branch_prefix_is_named_empty_without_a_call() {
+    let mut h = Harness::new(LIMITS);
+    assert_eq!(
+        h.step(Event::Read { owner: Token::new(1), repository: REPO, read: Read::Branches { prefix: Box::new([]) } })
+            .as_ref(),
+        &[Request::Read { owner: Token::new(1), result: Err(Error::Empty) }]
+    );
 }

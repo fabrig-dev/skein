@@ -189,7 +189,7 @@ fn github_plans_branch_resolves_then_reads() {
 #[test]
 fn github_plans_branches_page_twice() {
     let mut tables = Tables::new(2, 2);
-    let mut plan = read_plan(api::Read::Branches);
+    let mut plan = read_plan(api::Read::Branches { prefix: Box::from(&b"m"[..]) });
     assert_eq!(plan.begin(bounds(), b"example-app", &mut tables), Ok(Step::send(Request::Repository { id: 7 })));
     head(&mut plan, false, bounds(), &mut tables);
     assert_eq!(
@@ -198,18 +198,18 @@ fn github_plans_branches_page_twice() {
     );
     head(&mut plan, true, bounds(), &mut tables);
     assert_eq!(name(&mut plan, b"main", bounds(), &mut tables), Ok(None));
-    assert_eq!(name(&mut plan, b"feat/x y", bounds(), &mut tables), Ok(None));
+    assert_eq!(name(&mut plan, b"m/feat/x y", bounds(), &mut tables), Ok(None));
     assert_eq!(done(&mut plan, Document::Rows, bounds(), &mut tables), Ok(Some(Step::send(branches_request(2, 2)))));
     head(&mut plan, false, bounds(), &mut tables);
-    assert_eq!(name(&mut plan, b"trunk", bounds(), &mut tables), Ok(None));
-    assert_eq!(name(&mut plan, b"deploy/x", bounds(), &mut tables), Ok(None));
+    assert_eq!(name(&mut plan, b"m/trunk", bounds(), &mut tables), Ok(None));
+    assert_eq!(name(&mut plan, b"m/deploy/x", bounds(), &mut tables), Ok(None));
     assert_eq!(
         done(&mut plan, Document::Rows, bounds(), &mut tables),
         ended(Ok(api::Answer::Branches(Box::from([
             Box::<[u8]>::from(*b"main"),
-            Box::from(*b"feat/x y"),
-            Box::from(*b"trunk"),
-            Box::from(*b"deploy/x"),
+            Box::from(*b"m/feat/x y"),
+            Box::from(*b"m/trunk"),
+            Box::from(*b"m/deploy/x"),
         ]))))
     );
 }
@@ -218,13 +218,13 @@ fn github_plans_branches_page_twice() {
 fn github_plans_branches_past_the_bound() {
     let width = u32::try_from(measure::STRING_BYTES).expect("string width");
     for (bounds, first, second) in [
-        (Bounds { rows: 1, ..bounds() }, b"a".as_slice(), b"b".as_slice()),
-        (Bounds { answer_bytes: width + 1, ..bounds() }, b"a".as_slice(), b"b".as_slice()),
+        (Bounds { rows: 1, ..bounds() }, b"a".as_slice(), b"aa".as_slice()),
+        (Bounds { answer_bytes: width + 1, ..bounds() }, b"a".as_slice(), b"aa".as_slice()),
         (Bounds { answer_bytes: width * 2, ..bounds() }, b"12345678".as_slice(), b"123456789".as_slice()),
     ] {
         let mut tables = Tables::new(2, 2);
         keep(&mut tables);
-        let mut plan = read_plan(api::Read::Branches);
+        let mut plan = read_plan(api::Read::Branches { prefix: Box::from(&first[..1]) });
         plan.begin(bounds, b"example-app", &mut tables).expect("admitted");
         head(&mut plan, true, bounds, &mut tables);
         assert_eq!(name(&mut plan, first, bounds, &mut tables), Ok(None));
@@ -273,7 +273,11 @@ fn github_plans_branch_and_contents_missing_keep_the_row() {
 #[test]
 fn github_plans_repository_missing_drops_the_row() {
     for status in [404, 410] {
-        for read in [api::Read::Settings, api::Read::Branches, api::Read::Item { number: 1, after: 0 }] {
+        for read in [
+            api::Read::Settings,
+            api::Read::Branches { prefix: Box::from(&b"m"[..]) },
+            api::Read::Item { number: 1, after: 0 },
+        ] {
             let mut tables = Tables::new(2, 2);
             keep(&mut tables);
             let mut plan = read_plan(read);
@@ -423,7 +427,7 @@ fn github_plans_page_size_and_empty_listing() {
     ] {
         let mut tables = Tables::new(2, 2);
         keep(&mut tables);
-        let mut plan = read_plan(api::Read::Branches);
+        let mut plan = read_plan(api::Read::Branches { prefix: Box::from(&b"m"[..]) });
         assert_eq!(plan.begin(bounds, b"example-app", &mut tables), Ok(Step::send(branches_request(1, limit))));
         head(&mut plan, false, bounds, &mut tables);
         assert_eq!(
@@ -439,7 +443,7 @@ fn github_plans_page_size_and_empty_listing() {
     ] {
         let mut tables = Tables::new(0, 0);
         assert_eq!(
-            read_plan(api::Read::Branches).begin(bounds, b"example-app", &mut tables),
+            read_plan(api::Read::Branches { prefix: Box::from(&b"m"[..]) }).begin(bounds, b"example-app", &mut tables),
             Err(api::Error::TooLarge)
         );
     }
@@ -449,7 +453,7 @@ fn github_plans_page_size_and_empty_listing() {
 fn github_plans_page_row_bound() {
     let mut tables = Tables::new(2, 2);
     keep(&mut tables);
-    let mut plan = started(api::Read::Branches, bounds(), &mut tables);
+    let mut plan = started(api::Read::Branches { prefix: Box::from(&b"m"[..]) }, bounds(), &mut tables);
     for _ in 0..bounds().page_size {
         assert_eq!(name(&mut plan, b"a", bounds(), &mut tables), Ok(None));
     }
@@ -458,7 +462,7 @@ fn github_plans_page_row_bound() {
 
 #[test]
 fn github_plans_resolve_rejects_wrong_repository() {
-    for read in [branch(), api::Read::Branches] {
+    for read in [branch(), api::Read::Branches { prefix: Box::from(&b"m"[..]) }] {
         let mut tables = Tables::new(2, 2);
         let mut plan = started(read, bounds(), &mut tables);
         assert_eq!(
@@ -555,4 +559,68 @@ fn github_plans_pending_is_caller_retained() {
     plan.set_pending(exchange.clone());
     assert_eq!(plan.pending(), Some(exchange));
     assert_eq!(plan.pending(), None);
+}
+
+#[test]
+fn github_branch_prefix_keeps_two_matches_among_222_branches() {
+    let mut tables = Tables::new(2, 2);
+    keep(&mut tables);
+    let bounds = Bounds { rows: 8, ..bounds() };
+    let mut plan = read_plan(api::Read::Branches { prefix: Box::from(&b"temper/"[..]) });
+    assert_eq!(plan.begin(bounds, b"example-app", &mut tables), Ok(Step::send(branches_request(1, 2))));
+    for page in 1..=111 {
+        head(&mut plan, page != 111, bounds, &mut tables);
+        for index in [page * 2 - 2, page * 2 - 1] {
+            let branch = match index {
+                0 => Box::from(&b"temper/one"[..]),
+                221 => Box::from(&b"temper/two"[..]),
+                _ => Box::from(skein_lib::Decimal::of(u64::from(index)).as_bytes()),
+            };
+            assert_eq!(name(&mut plan, &branch, bounds, &mut tables), Ok(None));
+        }
+        let expected = if page == 111 {
+            ended(Ok(api::Answer::Branches(Box::from([Box::from(&b"temper/one"[..]), Box::from(&b"temper/two"[..])]))))
+        } else {
+            Ok(Some(Step::send(branches_request(page + 1, 2))))
+        };
+        assert_eq!(done(&mut plan, Document::Rows, bounds, &mut tables), expected);
+    }
+}
+
+#[test]
+fn github_branch_prefix_ninth_match_exceeds_eight_rows() {
+    let mut tables = Tables::new(2, 2);
+    keep(&mut tables);
+    let bounds = Bounds { rows: 8, ..bounds() };
+    let mut plan = read_plan(api::Read::Branches { prefix: Box::from(&b"temper/"[..]) });
+    plan.begin(bounds, b"example-app", &mut tables).expect("begin");
+    for page in 1_u32..=5 {
+        head(&mut plan, page != 5, bounds, &mut tables);
+        for index in [page * 2 - 2, page * 2 - 1] {
+            let result = name(&mut plan, &numbered_prefix(b"temper/", index), bounds, &mut tables);
+            if index == 8 {
+                assert_eq!(result, ended(Err(api::Error::TooLarge)));
+                return;
+            }
+            assert_eq!(result, Ok(None));
+        }
+        done(&mut plan, Document::Rows, bounds, &mut tables).expect("page");
+    }
+    panic!("ninth row must refuse");
+}
+
+#[test]
+fn github_empty_branch_prefix_is_named_empty_without_a_request() {
+    let mut tables = Tables::new(2, 2);
+    let mut plan = read_plan(api::Read::Branches { prefix: Box::new([]) });
+    assert_eq!(plan.begin(bounds(), b"example-app", &mut tables), Err(api::Error::Empty));
+    assert_eq!(plan.pending(), None);
+}
+
+fn numbered_prefix(prefix: &[u8], index: u32) -> Box<[u8]> {
+    let digits = skein_lib::Decimal::of(u64::from(index));
+    let mut out = skein_lib::Writer::new(prefix.len().checked_add(digits.as_bytes().len()).expect("fixture size"));
+    out.put(prefix).unwrap();
+    out.put(digits.as_bytes()).unwrap();
+    out.finish()
 }

@@ -80,7 +80,7 @@ impl Plan {
             Read::Locate { .. }
             | Read::Settings
             | Read::Branch { .. }
-            | Read::Branches
+            | Read::Branches { .. }
             | Read::Items { .. }
             | Read::Item { .. }
             | Read::Permission { .. }
@@ -167,7 +167,7 @@ impl Plan {
             | Read::Locate { .. }
             | Read::Settings
             | Read::Branch { .. }
-            | Read::Branches
+            | Read::Branches { .. }
             | Read::Items { .. }
             | Read::Item { .. }
             | Read::Permission { .. }
@@ -306,7 +306,7 @@ fn is_statuses(read: &Read) -> bool {
         | Read::Locate { .. }
         | Read::Settings
         | Read::Branch { .. }
-        | Read::Branches
+        | Read::Branches { .. }
         | Read::Items { .. }
         | Read::Item { .. }
         | Read::Permission { .. }

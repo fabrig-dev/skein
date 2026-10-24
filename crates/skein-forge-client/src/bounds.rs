@@ -41,7 +41,7 @@ pub(crate) fn read(value: &Read) -> Option<u64> {
         | Read::Pull { .. }
         | Read::Compare { .. }
         | Read::Checks { .. }
-        | Read::Branches
+        | Read::Branches { .. }
         | Read::Settings
         | Read::Permission { .. } => true,
     };

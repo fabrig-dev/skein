@@ -487,3 +487,39 @@ fn a_branch_deletion_answers_204_and_removes_the_branch() {
         Err(a::Error::Missing(a::What::Branch))
     );
 }
+
+#[test]
+fn refs_prefix_returns_404_one_or_many_among_222_branches() {
+    let mut h = Harness::with_branches(222);
+    h.ask(b"GET", b"/api/v1/repos/org/repo/git/refs/heads/temper%2F", b"");
+    assert_eq!(h.status(), 404);
+    for index in 0_u64..221 {
+        let name = match index {
+            0 => boxed(b"temper/0"),
+            1 => boxed(b"temper/1"),
+            _ => boxed(skein_lib::Decimal::of(index).as_bytes()),
+        };
+        h.call(fixtures::PERSON, Op::Git(a::Git::Create { branch: name, commit: 1 })).expect("created branch");
+    }
+    h.ask(b"GET", b"/api/v1/repos/org/repo/git/refs/heads/temper%2F0", b"");
+    assert_eq!(h.status(), 200);
+    let request = Request::Branches {
+        at: fixtures::at(),
+        prefix: Some(boxed(b"temper/0")),
+        page: skein_forge::forgejo::request::Page { page: None, limit: None },
+    };
+    assert_eq!(h.decoded(&request).rows.len(), 1);
+    h.ask(b"GET", b"/api/v1/repos/org/repo/git/refs/heads/temper%2F", b"");
+    assert_eq!(h.status(), 200);
+    let request = Request::Branches {
+        at: fixtures::at(),
+        prefix: Some(boxed(b"temper/")),
+        page: skein_forge::forgejo::request::Page { page: None, limit: None },
+    };
+    let got = h.decoded(&request);
+    assert_eq!(got.rows.len(), 2);
+    for (row, name) in got.rows.iter().zip([b"temper/0", b"temper/1"]) {
+        let Row::Branch(branch) = row else { panic!("branch ref") };
+        assert_eq!(branch.name.as_ref(), name);
+    }
+}

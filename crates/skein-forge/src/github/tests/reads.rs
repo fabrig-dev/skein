@@ -1123,17 +1123,17 @@ fn branch_page(call: &mut Call, names: &[&[u8]], chunk: u32) -> Result<Option<St
 fn branches_skip_a_long_middle_name_and_keep_both_neighbors() {
     let long = fixtures::filled(usize::try_from(limits().string_bytes).unwrap() + 1, b'x');
     for chunk in [1, 7, ROOM] {
-        let mut call = started(api::Read::Branches, bounds());
+        let mut call = started(api::Read::Branches { prefix: Box::from(&b"b"[..]) }, bounds());
         assert_eq!(
-            branch_page(&mut call, &[b"before", &long, b"after"], chunk),
-            ended(Ok(api::Answer::Branches(Box::from([Box::from(*b"before"), Box::from(*b"after")]))))
+            branch_page(&mut call, &[b"before", &long, b"behind"], chunk),
+            ended(Ok(api::Answer::Branches(Box::from([Box::from(*b"before"), Box::from(*b"behind")]))))
         );
     }
 }
 #[test]
 fn branches_keep_a_name_at_the_string_bound() {
     let name = fixtures::filled(usize::try_from(limits().string_bytes).unwrap(), b'x');
-    let mut call = started(api::Read::Branches, bounds());
+    let mut call = started(api::Read::Branches { prefix: Box::from(&b"x"[..]) }, bounds());
     assert_eq!(branch_page(&mut call, &[&name], 1), ended(Ok(api::Answer::Branches(Box::from([name])))));
 }
 #[test]
@@ -1149,7 +1149,7 @@ fn branches_skip_a_queue_name_and_keep_its_base() {
     queue.put(fixtures::SHA).unwrap();
     let queue = queue.finish();
     assert_eq!(queue.len(), cap + 1);
-    let mut call = started(api::Read::Branches, bounds());
+    let mut call = started(api::Read::Branches { prefix: Box::from(&b"b"[..]) }, bounds());
     assert_eq!(branch_page(&mut call, &[&base, &queue], 1), ended(Ok(api::Answer::Branches(Box::from([base])))));
 }
 #[test]
@@ -1168,7 +1168,8 @@ fn branch_read_still_refuses_a_name_past_the_bound() {
 #[test]
 fn skipped_branches_count_toward_per_page_and_paging_continues() {
     let long = fixtures::filled(usize::try_from(limits().string_bytes).unwrap() + 1, b'x');
-    let mut call = Call::new(api::Read::Branches, Bounds { page_size: 2, ..bounds() }, true);
+    let mut call =
+        Call::new(api::Read::Branches { prefix: Box::from(&b"b"[..]) }, Bounds { page_size: 2, ..bounds() }, true);
     call.begin().unwrap();
     call.head(true);
     assert_eq!(
@@ -1177,12 +1178,12 @@ fn skipped_branches_count_toward_per_page_and_paging_continues() {
     );
     call.head(false);
     assert_eq!(
-        branch_page(&mut call, &[b"after"], 1),
-        ended(Ok(api::Answer::Branches(Box::from([Box::from(*b"before"), Box::from(*b"after")]))))
+        branch_page(&mut call, &[b"behind"], 1),
+        ended(Ok(api::Answer::Branches(Box::from([Box::from(*b"before"), Box::from(*b"behind")]))))
     );
 
-    let mut call = started(api::Read::Branches, Bounds { page_size: 2, ..bounds() });
-    assert_eq!(branch_page(&mut call, &[b"before", &long, b"after"], 1), ended(Err(api::Error::TooLarge)));
+    let mut call = started(api::Read::Branches { prefix: Box::from(&b"b"[..]) }, Bounds { page_size: 2, ..bounds() });
+    assert_eq!(branch_page(&mut call, &[b"before", &long, b"behind"], 1), ended(Err(api::Error::TooLarge)));
 }
 
 #[test]

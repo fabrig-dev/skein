@@ -122,6 +122,7 @@ pub(super) fn write(json: &mut Encoder, answer: &super::Answer) {
         | super::Answer::Reviews(_)
         | super::Answer::ReviewComments(_)
         | super::Answer::Branch(_)
+        | super::Answer::BranchRefs(_)
         | super::Answer::Branches(_)
         | super::Answer::Protection(_)
         | super::Answer::Protections(_)

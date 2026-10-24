@@ -70,7 +70,7 @@ pub(crate) fn accepts(op: &Op, answer: &Answer) -> bool {
             Read::Statuses { .. } => Shape::Statuses,
             Read::Remarks { .. } => Shape::Remarks,
             Read::Branch { .. } => Shape::Commit,
-            Read::Branches => Shape::Branches,
+            Read::Branches { .. } => Shape::Branches,
             Read::PullFiles { .. } => Shape::PullFiles,
             Read::Compare { .. } => Shape::Compare,
             Read::Checks { .. } => Shape::Checks,
@@ -146,10 +146,10 @@ pub(crate) fn accepts(op: &Op, answer: &Answer) -> bool {
                 Some(pull) => pull.head == *head && pull.base == *base,
                 None => false,
             },
+            Read::Branches { prefix } => branch_names_match(answer, prefix),
             Read::Statuses { .. }
             | Read::Remarks { .. }
             | Read::Branch { .. }
-            | Read::Branches
             | Read::Protection { .. }
             | Read::Settings
             | Read::Collaborators { .. }
@@ -157,6 +157,17 @@ pub(crate) fn accepts(op: &Op, answer: &Answer) -> bool {
         },
         Op::Write(_) => true,
     }
+}
+fn branch_names_match(answer: &Answer, prefix: &[u8]) -> bool {
+    let Answer::Branches(names) = answer else {
+        return false;
+    };
+    for name in names {
+        if !name.starts_with(prefix) {
+            return false;
+        }
+    }
+    true
 }
 fn checks_at_head(answer: &Answer, head: Commit) -> bool {
     match answer {

@@ -683,7 +683,7 @@ first failure, but where a row says otherwise.
 | `Read::Statuses { commit, page }` | `GET R/commits/<commit>/status?page=<page>&limit=<size>` | CI from `state` and `total_count`; each context's latest status: `updated_at`, `context`, `status`, `description`, `target_url` as its link (links are absolute, below), no job; `more` while the pages read fall short of `total_count` |
 | `Read::Remarks { number, review, page }` | `GET R/pulls/<number>/reviews/<review>/comments` (unpaged) | the `page`th slice of `<size>`, cut as it streams: `id`, `user.id`, `path`, `position` as `line`, `body`; `more` when a comment follows the slice |
 | `Read::Branch { branch }` | `GET R/branches/<branch>` | `commit.id` |
-| `Read::Branches` | `GET R/branches?page=<n>&limit=<size>`, from page 1 until a page comes short | every `name`; past the answer's bound, `TooLarge` |
+| `Read::Branches { prefix }` | `GET R/git/refs/heads/<prefix>` | branch names from matching `refs/heads/` refs; no matches (`404`) gives an empty list and keeps the repository row; past the matching answer's bound, `TooLarge` |
 | `Read::PullFiles { number, head, page }` | `GET R/pulls/<number>`; `GET R/pulls/<number>/files?page=<page>&limit=<size>`; for each file, `GET R/raw/<path>?ref=<merge_base>` (but for `added`; at `previous_filename` for `renamed`) and `GET R/raw/<filename>?ref=<head>` (but for `deleted`) | `head`; each file's `filename` with its contents at the merge base and at the head, a side absent when the file's `status` says so or its read answers `404`; `more` from `X-HasMore`; a `head.sha` other than `head` fails the call `Stale` before any file is read |
 | `Read::Compare { before, after }` | `GET R/compare/<before>...<after>?verification=false`; `GET R/compare/<after>...<before>?files=false&verification=false`; for each file, `GET R/raw/<filename>?ref=<before>` and `?ref=<after>` | `files[].filename` with its contents at `before` and at `after`, a side absent when its read answers `404`; `commits[].sha`; `contains_before` when the second comparison's `total_commits` is 0; the whole comparison within the answer's bound, or `TooLarge` |
 | `Read::Checks { commit }` | `GET R/commits/<commit>/status?page=<n>&limit=<size>`, every page; for each failing status whose link names a run of this repository's Actions: `GET R/actions/runs?head_sha=<commit>&run_number=<n>&page=1&limit=1`, then `GET R/actions/runs/<id>/jobs` | each context's latest status as for `Statuses`, its `job` the commit, the run's `id`, the job's `id` and its `attempt` when found, none otherwise |
@@ -707,6 +707,10 @@ first failure, but where a row says otherwise.
 | `Write::Status { commit, context, check }` | `POST R/statuses/<commit>` `{state: pending\|success\|failure, context}` | `Done` |
 | `Write::CreateBranch { branch, commit }` | `POST R/branches` `{new_branch_name: <branch>, old_ref_name: <commit>}` | `Branch(Created)`; a `409` (the branch exists) `Branch(Exists)` |
 | `Write::DeleteBranch { branch }` | `DELETE R/branches/<branch>` | `Done` |
+
+`Branches` requires a nonempty prefix bounded like a branch name. An empty
+prefix ends with `Error::Empty` before repository resolution or any GET.
+Only matching names count against the row and answer-byte bounds.
 
 Notes on the table:
 

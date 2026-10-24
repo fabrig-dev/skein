@@ -151,6 +151,7 @@ pub(super) fn write(json: &mut Encoder, answer: &Answer) -> Result<(), writer::R
         | Answer::Members(_)
         | Answer::CombinedStatus { .. }
         | Answer::Branch(_)
+        | Answer::BranchRefs(_)
         | Answer::Branches(_)
         | Answer::Protection(_)
         | Answer::Protections(_)

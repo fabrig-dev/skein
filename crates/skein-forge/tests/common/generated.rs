@@ -121,6 +121,7 @@ pub fn documents(seed: u64) -> Vec<Reply> {
         | Answer::Jobs(_)
         | Answer::Pulls(_)
         | Answer::ReviewComments(_)
+        | Answer::BranchRefs(_)
         | Answer::Branches(_)
         | Answer::Protection(_)
         | Answer::Protections(_)
@@ -301,7 +302,7 @@ fn vary(answer: &mut Answer, seed: u64) {
             }
         }
         Answer::Branch(v) => v.name = format!("branch-{seed}").into_bytes().into_boxed_slice(),
-        Answer::Branches(values) => {
+        Answer::BranchRefs(values) | Answer::Branches(values) => {
             for value in values {
                 value.name = format!("branch-{seed}").into_bytes().into_boxed_slice();
             }
@@ -469,7 +470,7 @@ fn shorten(answer: &mut Answer) {
         }
         Answer::Job { steps, .. } => *steps = Box::from([]),
         Answer::Jobs(values) => *values = Box::from([]),
-        Answer::Branches(values) => *values = Box::from([]),
+        Answer::BranchRefs(values) | Answer::Branches(values) => *values = Box::from([]),
         Answer::Protection(value) => {
             value.rule_name = Box::from(*b"x");
             value.status_check_contexts = Box::from([]);

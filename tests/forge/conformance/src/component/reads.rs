@@ -81,11 +81,12 @@ pub(super) fn run(runner: Option<&Path>, f: &Fixture, h: &mut Hosted, facts: &mu
     if runner.is_none() {
         names.retain(|name| name.as_ref() != b"actions");
     }
+    names.retain(|name| name.starts_with(b"m"));
     names.sort();
     facts.push(h.observe(
         "component-read-branches",
         repo,
-        Read::Branches.operation(),
+        Read::Branches { prefix: Box::from(&b"m"[..]) }.operation(),
         |a| matches!(a, Answer::Branches(b) if { let mut b = b.to_vec(); b.sort(); b == names }),
     ));
     facts.push(h.observe("component-read-pull-files", repo, Read::PullFiles { number: f.feature, head, page: 1 }.operation(), |a| matches!(a, Answer::PullFiles { head: got, files, more: true } if *got == head && files.len() == 1 && files.iter().enumerate().all(|(i,f)| f.path == bytes(&format!("file-{i}.txt")) && f.before.is_none() && f.after == Some(bytes(&format!("file {i}\n")))))));

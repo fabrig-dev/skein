@@ -206,6 +206,7 @@ pub enum Request {
     },
     Branches {
         at: Repo,
+        prefix: Option<Box<[u8]>>,
         page: Page,
     },
     Protection {

@@ -134,6 +134,7 @@ pub enum Answer {
     ReviewComments(Box<[ReviewComment]>),
     Branch(Branch),
     Branches(Box<[Branch]>),
+    BranchRefs(Box<[Branch]>),
     Protection(BranchProtection),
     Protections(Box<[BranchProtection]>),
     Collaborators(Box<[User]>),
@@ -214,6 +215,7 @@ fn write(json: &mut writer::Encoder, answer: &Answer) -> Result<(), writer::Refu
         }
         Answer::Pulls(_) | Answer::Reviews(_) | Answer::ReviewComments(_) => reviews::write(json, answer),
         Answer::Branch(_)
+        | Answer::BranchRefs(_)
         | Answer::Branches(_)
         | Answer::Protection(_)
         | Answer::Protections(_)

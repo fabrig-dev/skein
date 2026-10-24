@@ -71,7 +71,7 @@ pub fn key_of(body: &[u8]) -> Option<Box<[u8]>> {
 #[must_use]
 pub fn op(op: &client::Op, l: &Limits) -> forge::Op {
     match op {
-        client::Op::Read(client::Read::Branches) => forge::Op::Git(forge::Git::Clone),
+        client::Op::Read(client::Read::Branches { .. }) => forge::Op::Git(forge::Git::Clone),
         client::Op::Read(read) => forge::Op::Read(read_op(read, l)),
         client::Op::Write(write) => forge::Op::Write(write_op(write)),
     }
@@ -100,7 +100,7 @@ fn read_op(read: &client::Read, l: &Limits) -> forge::Read {
         client::Read::PullFor { head, base } => forge::Read::PullFor { head: head.clone(), base: base.clone() },
         client::Read::Statuses { commit, .. } => forge::Read::Statuses { commit: number(*commit) },
         client::Read::Branch { branch } => forge::Read::Branch { branch: branch.clone() },
-        client::Read::Branches => unreachable!("branch enumeration uses clone"),
+        client::Read::Branches { .. } => unreachable!("branch enumeration uses clone"),
         client::Read::PullFiles { number, page, .. } => {
             forge::Read::PullFiles { number: *number, page: *page, limit: l.rows }
         }
@@ -218,7 +218,7 @@ pub fn answer(asked: &client::Op, answer: forge::Answer, l: &Limits) -> client::
         forge::Answer::Pull(pull) => pull_answer(asked, pull, l),
         forge::Answer::Statuses(statuses) => statuses_answer(asked, &statuses, l),
         forge::Answer::Commit(id) => client::Answer::Commit(commit(id)),
-        forge::Answer::Cloned { branches, .. } => branches_answer(branches),
+        forge::Answer::Cloned { branches, .. } => branches_answer(asked, branches),
         forge::Answer::PullFiles { head, files, more } => {
             client::Answer::PullFiles { head: commit(head), files: files_in(files), more }
         }
@@ -303,9 +303,16 @@ fn checks_answer(asked: &client::Op, checks: Box<[forge::CheckSummary]>) -> clie
     }
     client::Answer::Checks(rows.into_boxed())
 }
-fn branches_answer(branches: Box<[forge::Head]>) -> client::Answer {
+fn branches_answer(asked: &client::Op, branches: Box<[forge::Head]>) -> client::Answer {
     let mut names = List::with_capacity(u32::try_from(branches.len()).expect("bounded fake branches"));
+    let prefix = match asked {
+        client::Op::Read(client::Read::Branches { prefix }) => prefix.as_ref(),
+        client::Op::Read(_) | client::Op::Write(_) => panic!("branches belong to a prefix read"),
+    };
     for head in branches {
+        if !head.branch.starts_with(prefix) {
+            continue;
+        }
         names.push(head.branch).expect("adoption branch capacity");
     }
     client::Answer::Branches(names.into_boxed())
@@ -382,7 +389,7 @@ fn pull_answer(asked: &client::Op, pull: forge::Pull, l: &Limits) -> client::Ans
             | client::Read::Item { .. }
             | client::Read::Statuses { .. }
             | client::Read::Branch { .. }
-            | client::Read::Branches
+            | client::Read::Branches { .. }
             | client::Read::PullFiles { .. }
             | client::Read::Compare { .. }
             | client::Read::Checks { .. }

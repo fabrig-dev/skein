@@ -388,7 +388,7 @@ fn loss_and_reacceptance_discard_discovery_and_its_staged_row() {
 #[test]
 fn revoked_multistep_continuation_is_forbidden() {
     let mut h = known();
-    begin(&mut h, Op::Read(Read::Branches));
+    begin(&mut h, Op::Read(Read::Branches { prefix: Box::from(&b"m"[..]) }));
     h.component.test_github_mut().rows.get_mut(&1).expect("row").forget();
     h.answer(
         FORGE,
@@ -609,7 +609,7 @@ fn original_reads_keep_the_dialects_typed_answers() {
             &[f::GITHUB_PULL, f::GITHUB_COMBINED, f::GITHUB_RUNS, f::GITHUB_GRAPHQL][..],
         ),
         ("Statuses", Read::Statuses { commit: [0; 32], page: 1 }, &[f::GITHUB_COMBINED][..]),
-        ("Branches", Read::Branches, &[br#"[{"name":"main"}]"#.as_slice()][..]),
+        ("Branches", Read::Branches { prefix: Box::from(&b"m"[..]) }, &[br#"[{"name":"main"}]"#.as_slice()][..]),
     ] {
         let mut h = known();
         begin(&mut h, Op::Read(op));

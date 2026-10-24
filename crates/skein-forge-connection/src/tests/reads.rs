@@ -535,18 +535,19 @@ fn branch(name: &[u8], rule: &[u8]) -> Box<[u8]> {
     ])
 }
 #[test]
-fn branches_read_each_explicit_page_until_one_comes_short() {
+fn branches_round_trip_the_prefix_in_one_refs_request() {
     let mut h = fixtures::known();
-    h.call(1, fixtures::REPO, Op::Read(Read::Branches));
-    answer(&mut h, &joined(&[b"[", &branch(b"main", b""), b",", &branch(b"work", b""), b"]"]));
-    last(&h, b"GET /api/v1/repos/fixture/specimen/branches?page=2&limit=2 HTTP/1.1");
-    answer(&mut h, &listed(&branch(b"other", b"")));
+    h.call(1, fixtures::REPO, Op::Read(Read::Branches { prefix: Box::from(&b"temper/"[..]) }));
+    h.run(Duration::ZERO);
+    last(&h, b"GET /api/v1/repos/fixture/specimen/git/refs/heads/temper%2F HTTP/1.1");
+    answer(&mut h, br#"[{"ref":"refs/heads/temper/one"},{"ref":"refs/heads/temper/two"}]"#);
     assert_eq!(
         h.answered(1).expect("branch names").result,
-        Ok(Answer::Branches(Box::new([Box::from(&b"main"[..]), Box::from(&b"work"[..]), Box::from(&b"other"[..])])))
+        Ok(Answer::Branches(Box::new([Box::from(&b"temper/one"[..]), Box::from(&b"temper/two"[..])])))
     );
-    assert_eq!(h.answered(1).expect("branch names").cost, 2);
+    assert_eq!(h.answered(1).expect("branch names").cost, 1);
 }
+
 #[test]
 fn protection_checks_admin_access_even_when_no_rule_applies() {
     let mut h = fixtures::known();

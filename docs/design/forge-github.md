@@ -162,7 +162,7 @@ the call fails `TooLarge` when a 50th page still has a next.
 | `Read::Statuses { commit, page }` | `GET R/commits/<commit>/status?per_page=<size>&page=<page>` | `Ci` from `state` and `total_count`, 0 being `None`; each `statuses[]` row: `updated_at`, `context`, `state`, `description`, `target_url`; no job; `more` from `Link` |
 | `Read::Remarks { number, review, page }` | `GET R/pulls/<number>/reviews/<review>/comments?per_page=<size>&page=<page>` | `id`, `user.id`, `path`, `line`, else `original_line`, else 0, `body`; `more` from `Link` |
 | `Read::Branch { branch }` | `GET R/branches/<branch>` | `commit.sha` |
-| `Read::Branches` | `GET R/branches?per_page=<size>&page=<n>`, from 1 until no next | every `name` within `string_bytes`; a longer one skipped; past the answer's bound, `TooLarge` |
+| `Read::Branches { prefix }` | `GET R/branches?per_page=<size>&page=<n>`, from 1 until no next | only names starting with the nonempty prefix, within `string_bytes`; a longer one skipped; only matches count against the answer bound, past it `TooLarge`; an empty prefix is `Empty` before any GET |
 | `Read::PullFiles { number, head, page }` | `GET R/pulls/<number>`; `GET R/compare/<base.sha>...<head.sha>?per_page=1`, for `merge_base_commit.sha`; `GET R/pulls/<number>/files?per_page=<size>&page=<page>`; for each file, the raw read (below) at the merge base, at `previous_filename` for `renamed`, but for `added`, and at the head but for `removed` | as forge.md 5.2; a `head.sha` other than `head` is `Stale` before any file is read; `more` from `Link` |
 | `Read::Compare { before, after }` | `GET R/compare/<before>...<after>?per_page=<size>`; for each file, the raw reads at `before` and `after` | `files[].filename` with its sides; `commits[].sha`; `contains_before` when `behind_by` is 0; `TooLarge` when the listed commits are fewer than `total_commits`, or `files` holds 300, GitHub's cap (`compare-files-capped-300`) |
 | `Read::Checks { commit }` | `GET R/commits/<commit>/status?per_page=<size>&page=<n>`, every page; `GET R/commits/<commit>/check-runs?filter=latest&per_page=<size>&page=<n>`, every page; for each failed check run of GitHub Actions, `GET R/actions/jobs/<id>` | each status as for `Statuses`; each check run as a `Status` (4.4), its `job` the commit, the run from `run_id`, the job its `id` and the attempt its `run_attempt` for an Actions run that failed, none otherwise |
@@ -176,7 +176,7 @@ the call fails `TooLarge` when a 50th page still has a next.
 
 The dropped rows are names the client can't hold, such as queue branches
 past the bound; the client makes no name past `string_bytes`, so it never
-looks for a branch it dropped (`Read::Branches`, 5.3's row).
+looks for a branch it dropped (`Read::Branches { prefix }`, 5.3's row).
 
 - **Compare pages commits, not files.** Its page size is the least of
   `rows`, `PAGE_CAP` (100), and `answer_bytes` / 32, the commit id's

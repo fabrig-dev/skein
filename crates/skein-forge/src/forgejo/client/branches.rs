@@ -12,6 +12,8 @@ use skein_lib::List;
 pub(crate) enum BranchKind {
     Branch,
     Branches,
+    Refs,
+    Ref,
     Commit,
     Protection,
     Protections,
@@ -24,6 +26,7 @@ const fn field(key: &'static [u8], read: Read) -> Field {
 }
 pub(crate) fn fields(kind: BranchKind) -> &'static [Field] {
     match kind {
+        BranchKind::Ref => const { &[field(b"ref", Read::Text)] },
         BranchKind::Branch => {
             const {
                 &[
@@ -49,15 +52,21 @@ pub(crate) fn fields(kind: BranchKind) -> &'static [Field] {
         BranchKind::Permission => {
             const { &[field(b"permission", Read::Text), field(b"user", Read::Object(Kind::User))] }
         }
-        BranchKind::Branches | BranchKind::Protections | BranchKind::Contexts | BranchKind::Context => &[],
+        BranchKind::Branches
+        | BranchKind::Refs
+        | BranchKind::Protections
+        | BranchKind::Contexts
+        | BranchKind::Context => &[],
     }
 }
 pub(crate) fn element(kind: BranchKind) -> Option<Kind> {
     match kind {
+        BranchKind::Refs => Some(Kind::Branch(BranchKind::Ref)),
         BranchKind::Branches => Some(Kind::Branch(BranchKind::Branch)),
         BranchKind::Protections => Some(Kind::Branch(BranchKind::Protection)),
         BranchKind::Contexts => Some(Kind::Branch(BranchKind::Context)),
         BranchKind::Branch
+        | BranchKind::Ref
         | BranchKind::Protection
         | BranchKind::Commit
         | BranchKind::Context
@@ -118,13 +127,21 @@ impl Branches {
             Move::Demand(demand) => {
                 return Step::Demand(if walk.parent() == Some(Kind::Branch(BranchKind::Contexts)) {
                     skein_json::tokenizer::Request::Text(limits.string_bytes)
+                } else if walk.parent() == Some(Kind::Branch(BranchKind::Ref))
+                    && let skein_json::tokenizer::Request::Text(_) = demand
+                {
+                    skein_json::tokenizer::Request::Text(
+                        limits
+                            .string_bytes
+                            .saturating_add(u32::try_from(b"refs/heads/".len()).expect("namespace length fits")),
+                    )
                 } else {
                     demand
                 });
             }
             Move::Scalar { kind: _, key, value } => self.scalar(key, value),
-            Move::End(Kind::Branch(BranchKind::Branch)) => {
-                if self.root == BranchKind::Branches {
+            Move::End(Kind::Branch(BranchKind::Branch | BranchKind::Ref)) => {
+                if self.root == BranchKind::Branches || self.root == BranchKind::Refs {
                     return Step::Row(
                         Row::Branch(core::mem::replace(&mut self.branch, branch())),
                         skein_json::tokenizer::Request::Next,
@@ -147,6 +164,7 @@ impl Branches {
                 Kind::User
                 | Kind::Branch(
                     BranchKind::Branches
+                    | BranchKind::Refs
                     | BranchKind::Protections
                     | BranchKind::Commit
                     | BranchKind::Contexts
@@ -179,8 +197,10 @@ impl Branches {
                         permission: self.permission,
                         user: core::mem::replace(&mut self.user, document::user()),
                     }),
-                    BranchKind::Branches | BranchKind::Protections => Document::Listed { skipped: walk.skipped() },
-                    BranchKind::Commit | BranchKind::Contexts | BranchKind::Context => {
+                    BranchKind::Branches | BranchKind::Refs | BranchKind::Protections => {
+                        Document::Listed { skipped: walk.skipped() }
+                    }
+                    BranchKind::Ref | BranchKind::Commit | BranchKind::Contexts | BranchKind::Context => {
                         unreachable!("branch root selection")
                     }
                 });
@@ -210,6 +230,10 @@ impl Branches {
             Value::Text(text) => match key {
                 b"login" => self.user.login = text,
                 b"name" => self.branch.name = text,
+                b"ref" => {
+                    let name = text.strip_prefix(b"refs/heads/").ok_or(Malformed::Value { field: key })?;
+                    self.branch.name = Box::from(name);
+                }
                 b"rule_name" => self.protection.rule_name = text,
                 b"effective_branch_protection_name" => {
                     self.branch.effective_branch_protection_name = if text.is_empty() { None } else { Some(text) }

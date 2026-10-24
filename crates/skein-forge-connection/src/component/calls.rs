@@ -460,7 +460,7 @@ pub(super) fn page_size(op: &api::Op, cap: u32, l: &Limits, s: &Shared) -> u32 {
             api::Read::Reviews { .. } => Listing::Reviews,
             api::Read::Statuses { .. } | api::Read::Checks { .. } => Listing::Statuses,
             api::Read::Remarks { .. } => Listing::Remarks,
-            api::Read::Branches => Listing::Branches,
+            api::Read::Branches { .. } => Listing::Branches,
             api::Read::Collaborators { .. } => Listing::Collaborators,
             api::Read::PullFiles { .. } => Listing::PullFiles,
             api::Read::Compare { .. } => Listing::Compare,

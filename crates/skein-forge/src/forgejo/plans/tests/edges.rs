@@ -225,7 +225,7 @@ fn success_statuses_match_each_exchange() {
 #[test]
 fn unexpected_read_status_is_invalid_answer() {
     for status in 201..=299 {
-        let mut run = Run::known(Op::Read(Read::Branches));
+        let mut run = Run::known(Op::Read(Read::Branches { prefix: Box::from(&b"m"[..]) }));
         run.begin();
         assert_eq!(run.answer(status, b"[]"), Step::Done(Err(Error::InvalidAnswer)), "{status}");
     }
@@ -284,7 +284,7 @@ fn merge_write_429_is_rate_limited() {
 /// A missing Retry-After gives zero; X-HasMore's fullness fallback is covered separately.
 #[test]
 fn rate_limited_without_retry_after_waits_zero() {
-    let mut run = Run::known(Op::Read(Read::Branches));
+    let mut run = Run::known(Op::Read(Read::Branches { prefix: Box::from(&b"m"[..]) }));
     run.begin();
     assert_eq!(run.answer(429, b"{}"), Step::Done(Err(Error::RateLimited { after: Duration::ZERO })));
 }
@@ -669,7 +669,7 @@ fn assert_no_repository(run: &mut Run) {
 
 #[test]
 fn repository_id_mismatch_is_invalid_answer() {
-    for read in [Read::Branches, Read::Settings] {
+    for read in [Read::Branches { prefix: Box::from(&b"m"[..]) }, Read::Settings] {
         let mut run = unresolved(Op::Read(read));
         assert_eq!(run.answer(200, OTHER_REPOSITORY), Step::Done(Err(Error::InvalidAnswer)));
         assert_no_repository(&mut run);
@@ -701,4 +701,77 @@ fn locate_accepts_a_nonzero_repository_id() {
     assert_eq!(run.tables().repository(ANSWERED_REPOSITORY), Some(&fixtures::specimen()));
     assert_eq!(run.tables().user(REPO.forge, OWNER_ID), Some(&b"fixture"[..]));
     run.assert_sent(&["GET /api/v1/repos/fixture/specimen"]);
+}
+
+#[test]
+fn branch_prefix_uses_one_refs_request_for_two_matches() {
+    // The refs route returns only matches; unrelated repository branches have no rows here.
+    let mut run = Run::with(BOUNDS, Op::Read(Read::Branches { prefix: Box::from(&b"temper/"[..]) }));
+    run.begin();
+    let body = br#"[{"ref":"refs/heads/temper/one","object":{"type":"commit","sha":"0100000000000000000000000000000000000000"}},{"ref":"refs/heads/temper/two","object":{"type":"commit","sha":"0100000000000000000000000000000000000000"}}]"#;
+    assert_eq!(
+        run.answer(200, body),
+        Step::Done(Ok(Answer::Branches(Box::from([Box::from(&b"temper/one"[..]), Box::from(&b"temper/two"[..]),]))))
+    );
+    run.assert_sent(&["GET /api/v1/repos/fixture/specimen/git/refs/heads/temper%2F"]);
+}
+
+#[test]
+fn branch_prefix_past_eight_matches_is_too_large() {
+    let mut run = Run::with(
+        crate::forgejo::plans::plan::Bounds { rows: 8, ..BOUNDS },
+        Op::Read(Read::Branches { prefix: Box::from(&b"temper/"[..]) }),
+    );
+    run.begin();
+    let length = br#"{"ref":"refs/heads/temper/0"}"#.len().checked_mul(9).unwrap().checked_add(10).unwrap();
+    let mut body = skein_lib::Writer::new(length);
+    body.put(b"[").unwrap();
+    for index in 0_u64..9 {
+        if index != 0 {
+            body.put(b",").unwrap();
+        }
+        body.put(br#"{"ref":"refs/heads/temper/"#).unwrap();
+        body.put(skein_lib::Decimal::of(index).as_bytes()).unwrap();
+        body.put(br#""}"#).unwrap();
+    }
+    body.put(b"]").unwrap();
+    assert_eq!(run.answer(200, &body.finish()), Step::Done(Err(Error::TooLarge)));
+}
+
+#[test]
+fn empty_branch_prefix_is_named_empty_before_repository_resolution() {
+    let mut run = Run::new(Op::Read(Read::Branches { prefix: Box::new([]) }));
+    assert_eq!(run.begin(), Step::Done(Err(Error::Empty)));
+    run.assert_sent(&[]);
+}
+
+#[test]
+fn missing_branch_prefix_is_an_empty_answer_and_keeps_the_repository() {
+    let mut run = Run::known(Op::Read(Read::Branches { prefix: Box::from(&b"temper/"[..]) }));
+    run.begin();
+    assert_eq!(run.answer(404, b"{}"), Step::Done(Ok(Answer::Branches(Box::new([])))));
+    assert_eq!(run.tables().repository(REPO), Some(&fixtures::specimen()));
+}
+
+#[test]
+fn refs_namespace_does_not_reduce_the_branch_name_bound() {
+    for name in [&[b'x'; 64][..], &[b'x'; 65][..]] {
+        let mut limits = fixtures::limits();
+        limits.string_bytes = 64;
+        limits.json.string = 75;
+        let mut run = Run::with_limits(limits, BOUNDS, Op::Read(Read::Branches { prefix: Box::from(&b"x"[..]) }));
+        run.begin();
+        let length =
+            br#"[{"ref":"refs/heads/"#.len().checked_add(name.len()).unwrap().checked_add(br#""}]"#.len()).unwrap();
+        let mut body = skein_lib::Writer::new(length);
+        body.put(br#"[{"ref":"refs/heads/"#).unwrap();
+        body.put(name).unwrap();
+        body.put(br#""}]"#).unwrap();
+        let expected = if name.len() == 64 {
+            Ok(Answer::Branches(Box::new([Box::from(name)])))
+        } else {
+            Err(Error::InvalidAnswer)
+        };
+        assert_eq!(run.answer(200, &body.finish()), Step::Done(expected));
+    }
 }

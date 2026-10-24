@@ -75,7 +75,7 @@ pub(super) fn page_bound(request: &Request) -> Option<u32> {
         Request::Issues { page, .. }
         | Request::Reviews { page, .. }
         | Request::CombinedStatus { page, .. }
-        | Request::Branches { page, .. }
+        | Request::Branches { prefix: None, page, .. }
         | Request::Collaborators { page, .. }
         | Request::Pulls { page, .. }
         | Request::PullFiles { page, .. }
@@ -94,6 +94,7 @@ pub(super) fn page_bound(request: &Request) -> Option<u32> {
         | Request::ReviewComments { .. }
         | Request::Branch { .. }
         | Request::Protection { .. }
+        | Request::Branches { prefix: Some(_), .. }
         | Request::Protections { .. }
         | Request::Permission { .. }
         | Request::Compare { .. }

@@ -29,7 +29,7 @@ enum Read {
     Locate { owner: Box<[u8]>, name: Box<[u8]> },
     Settings,
     Branch { branch: Box<[u8]> },
-    Branches,
+    Branches { prefix: Box<[u8]> },
     Items { since: skein_lib::Time, page: u32, kind: Option<api::Kind> },
     Item { number: u64, after: u64 },
     Pull { number: u64 },
@@ -113,7 +113,7 @@ impl Plan {
             api::Read::Locate { owner, name } => Read::Locate { owner, name },
             api::Read::Settings => Read::Settings,
             api::Read::Branch { branch } => Read::Branch { branch },
-            api::Read::Branches => Read::Branches,
+            api::Read::Branches { prefix } => Read::Branches { prefix },
             api::Read::Items { since, page, kind } => Read::Items { since, page, kind },
             api::Read::Item { number, after } => Read::Item { number, after },
             api::Read::Pull { number } => Read::Pull { number },
@@ -169,7 +169,10 @@ impl Plan {
                 self.stage = Stage::Read;
                 return Ok(self.send(Request::Repository { id: u64::from(self.repository.repository) }));
             }
-            Read::Branches => {
+            Read::Branches { prefix } => {
+                if prefix.is_empty() {
+                    return Err(api::Error::Empty);
+                }
                 let capacity = size::capacity(bounds, crate::measure::STRING_BYTES)?;
                 self.limit = size::page_size(bounds, capacity)?;
                 self.rows = List::with_capacity(capacity);
@@ -240,7 +243,7 @@ impl Plan {
             Read::Locate { .. }
             | Read::Settings
             | Read::Branch { .. }
-            | Read::Branches
+            | Read::Branches { .. }
             | Read::Items { .. }
             | Read::Item { .. } => {}
         }
@@ -249,7 +252,7 @@ impl Plan {
         let name = row.name.clone();
         let request = match &self.read {
             Read::Branch { branch } => Request::Branch { owner, name, branch: branch.clone() },
-            Read::Branches => Request::Branches { owner, name, page: self.page, per_page: self.limit },
+            Read::Branches { .. } => Request::Branches { owner, name, page: self.page, per_page: self.limit },
             Read::Items { since, page, .. } => Request::Issues {
                 owner,
                 name,
@@ -347,7 +350,7 @@ impl Plan {
                         | Read::Locate { .. }
                         | Read::Settings
                         | Read::Branch { .. }
-                        | Read::Branches
+                        | Read::Branches { .. }
                         | Read::Pull { .. }
                         | Read::PullFor { .. }
                         | Read::Checks { .. }
@@ -488,14 +491,17 @@ impl Plan {
             Read::Locate { .. }
             | Read::Settings
             | Read::Branch { .. }
-            | Read::Branches
+            | Read::Branches { .. }
             | Read::Permission { .. }
             | Read::File { .. }
             | Read::Job { .. } => {}
         }
-        if self.stage != Stage::Read || self.read != Read::Branches {
+        if self.stage != Stage::Read {
             return Err(api::Error::InvalidAnswer);
         }
+        let Read::Branches { prefix } = &self.read else {
+            return Err(api::Error::InvalidAnswer);
+        };
         self.count = self.count.checked_add(1).ok_or(api::Error::TooLarge)?;
         if self.count > self.limit {
             return Err(api::Error::TooLarge);
@@ -503,6 +509,9 @@ impl Plan {
         match row {
             document::Row::SkippedBranch => Ok(()),
             document::Row::Branch(name) => {
+                if !name.starts_with(prefix) {
+                    return Ok(());
+                }
                 if self.rows.len() >= bounds.rows {
                     return Err(api::Error::TooLarge);
                 }

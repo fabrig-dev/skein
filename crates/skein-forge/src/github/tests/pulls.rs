@@ -230,7 +230,7 @@ fn github_pull_resolves_absent_repository() {
             | api::Read::Reviews { .. }
             | api::Read::Remarks { .. }
             | api::Read::Branch { .. }
-            | api::Read::Branches
+            | api::Read::Branches { .. }
             | api::Read::PullFiles { .. }
             | api::Read::Compare { .. }
             | api::Read::Checks { .. }

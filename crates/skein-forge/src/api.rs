@@ -111,8 +111,9 @@ pub enum Read {
     Remarks { number: u64, review: u64, page: u32 },
     /// Read branch.
     Branch { branch: Box<[u8]> },
-    /// Names of the repository's branches, bounded by the adapter's answer limit.
-    Branches,
+    /// Names starting with the nonempty branch prefix, bounded like a branch name.
+    /// Only matching names count toward the adapter's answer limit.
+    Branches { prefix: Box<[u8]> },
     /// Read pull files.
     PullFiles { number: u64, head: Commit, page: u32 },
     /// Whole bounded comparison; `TooLarge` means unknown overlap.
@@ -234,7 +235,7 @@ pub enum Error {
     MissingJob,
     /// The request or answer exceeds a configured bound.
     TooLarge,
-    /// The requested operation has no content.
+    /// The requested operation has no content, including an empty branch prefix.
     Empty,
     /// The provider has no room for this operation.
     Full,

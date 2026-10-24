@@ -616,7 +616,7 @@ fn admitted(op: &api::Op) -> bool {
             | api::Read::Locate { .. }
             | api::Read::Settings
             | api::Read::Branch { .. }
-            | api::Read::Branches
+            | api::Read::Branches { .. }
             | api::Read::Items { .. }
             | api::Read::Item { .. }
             | api::Read::Pull { .. }

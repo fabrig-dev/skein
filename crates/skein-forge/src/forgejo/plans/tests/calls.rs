@@ -165,10 +165,10 @@ fn review_cases() -> [ReadCase; 5] {
         },
         ReadCase {
             name: "branches",
-            read: Read::Branches,
+            read: Read::Branches { prefix: Box::from(&b"m"[..]) },
             replies: &[(200, REPOSITORY), (200, b"[]")],
             expected: Ok(Answer::Branches(Box::new([]))),
-            sends: &["GET /api/v1/repositories/1", "GET /api/v1/repos/fixture/specimen/branches?page=1&limit=2"],
+            sends: &["GET /api/v1/repositories/1", "GET /api/v1/repos/fixture/specimen/git/refs/heads/m"],
             range: None,
             kept: true,
             login: None,
@@ -376,7 +376,7 @@ fn page_size_is_passed_to_each_listing() {
     }
 }
 type Listing = (Read, &'static [&'static [u8]], &'static str);
-fn listings() -> [Listing; 8] {
+fn listings() -> [Listing; 7] {
     [
         (
             Read::Items { since: Time::ZERO, page: 1, kind: None },
@@ -389,7 +389,6 @@ fn listings() -> [Listing; 8] {
             &[],
             "commits/0100000000000000000000000000000000000000/status?page=1&limit=",
         ),
-        (Read::Branches, &[], "branches?page=1&limit="),
         (Read::Collaborators { page: 1 }, &[], "collaborators?page=1&limit="),
         (Read::PullFiles { number: 1, head: HEAD, page: 1 }, &[PULL], "pulls/1/files?page=1&limit="),
         (

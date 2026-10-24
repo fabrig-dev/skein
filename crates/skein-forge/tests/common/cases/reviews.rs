@@ -89,12 +89,12 @@ pub fn cases() -> Vec<(&'static str, Request, Option<Answer>)> {
         ),
         (
             "branches-page-1",
-            Request::Branches { at: forgejo::specimen(), page: forgejo::page(1, 2) },
+            Request::Branches { at: forgejo::specimen(), prefix: None, page: forgejo::page(1, 2) },
             Some(Answer::Branches(Box::from([branch(b"landing", 7), branch(b"mergeable", 5)]))),
         ),
         (
             "branches-page-2",
-            Request::Branches { at: forgejo::specimen(), page: forgejo::page(2, 2) },
+            Request::Branches { at: forgejo::specimen(), prefix: None, page: forgejo::page(2, 2) },
             Some(Answer::Branches(Box::from([branch(b"writer-head", 9), branch(b"conflict", 10)]))),
         ),
         (
@@ -126,7 +126,9 @@ pub fn expected(answer: Answer) -> (Document, Vec<Row>) {
         Answer::ReviewComments(v) => {
             (Document::Listed { skipped: 0 }, v.into_vec().into_iter().map(Row::ReviewComment).collect())
         }
-        Answer::Branches(v) => (Document::Listed { skipped: 0 }, v.into_vec().into_iter().map(Row::Branch).collect()),
+        Answer::BranchRefs(v) | Answer::Branches(v) => {
+            (Document::Listed { skipped: 0 }, v.into_vec().into_iter().map(Row::Branch).collect())
+        }
         Answer::Protections(v) => {
             (Document::Listed { skipped: 0 }, v.into_vec().into_iter().map(Row::Protection).collect())
         }

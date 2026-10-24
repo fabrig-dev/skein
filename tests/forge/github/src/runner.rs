@@ -684,7 +684,7 @@ impl<'a> Runner<'a> {
                 api::Op::Write(api::Write::Review { .. }) => "approval",
                 api::Op::Write(api::Write::Merge { .. }) => "enqueue",
                 api::Op::Read(api::Read::Checks { .. }) => "checks",
-                api::Op::Read(api::Read::Branches) => "branches",
+                api::Op::Read(api::Read::Branches { .. }) => "branches",
                 api::Op::Read(api::Read::Branch { branch }) if branch.starts_with(b"gh-readonly-queue/") => "group",
                 api::Op::Read(api::Read::Pull { .. }) => "pull",
                 api::Op::Read(_) | api::Op::Write(_) => "other",

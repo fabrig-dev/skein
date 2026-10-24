@@ -209,8 +209,11 @@ pub fn step(d: &mut Domain, env: &Env<Limits>, event: Event, out: &mut Queue<Req
             }
         }
         Event::Read { owner, repository, read } => {
+            let empty_prefix = if let api::Read::Branches { prefix } = &read { prefix.is_empty() } else { false };
             let op = api::Op::Read(read);
-            let refusal = if !bounds::op(&op, &env.limits) {
+            let refusal = if empty_prefix {
+                Some(api::Error::Empty)
+            } else if !bounds::op(&op, &env.limits) {
                 Some(api::Error::TooLarge)
             } else if d.calls.is_full() || (d.keep.is_ready() && calls::background_owed(&d.calls, env)) {
                 Some(api::Error::Busy)

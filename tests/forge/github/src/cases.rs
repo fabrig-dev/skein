@@ -710,8 +710,13 @@ const BRANCHES_PAGE_SIZE: usize = 100;
 fn queue_group_branch(r: &mut Runner<'_>, index: usize, reads: &mut usize) -> Result<Option<Box<[u8]>>> {
     for attempt in 1..=GROUP_POLL_READS {
         *reads = attempt;
-        let Some(branches) =
-            queue_plan(r, index, api::Op::Read(api::Read::Branches), false, "queue branches read failed")?
+        let Some(branches) = queue_plan(
+            r,
+            index,
+            api::Op::Read(api::Read::Branches { prefix: Box::from(&b"gh-readonly-queue/"[..]) }),
+            false,
+            "queue branches read failed",
+        )?
         else {
             return Ok(None);
         };

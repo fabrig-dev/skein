@@ -649,6 +649,21 @@ fn branches(
     select: &Select,
     branches: &[a::Head],
 ) -> Result<server::Answer, a::Error> {
+    if let Request::Branches { prefix: Some(prefix), .. } = request {
+        let Ok(capacity) = u32::try_from(branches.len()) else {
+            return Err(a::Error::TooLarge);
+        };
+        let mut out = List::with_capacity(capacity);
+        for branch in branches {
+            if branch.branch.starts_with(prefix) {
+                out.push(answers::branch(config, request, &branch.branch, branch.commit)).expect("bounded clone");
+            }
+        }
+        if out.is_empty() {
+            return Err(a::Error::Missing(a::What::Branch));
+        }
+        return Ok(server::Answer::BranchRefs(out.into_boxed()));
+    }
     let page = match select {
         Select::Branches(page) => *page,
         Select::Document

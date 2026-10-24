@@ -79,14 +79,9 @@ fn github_branches_follow_all_linked_pages() {
             Answer::served("GET /repos/acme/widgets/branches?per_page=8&page=2"),
         ],
     );
-    w.call(1, REPO, Op::Read(Read::Branches));
+    w.call(1, REPO, Op::Read(Read::Branches { prefix: Box::from(&b"m"[..]) }));
     w.run_for(SECOND);
-    value(
-        &w,
-        1,
-        3,
-        &Ok(Value::Branches([b"alpha".as_slice(), b"feature/one", b"main"].into_iter().map(Box::from).collect())),
-    );
+    value(&w, 1, 3, &Ok(Value::Branches([b"main".as_slice()].into_iter().map(Box::from).collect())));
     assert!(w.script_done());
     assert!(w.close());
 }

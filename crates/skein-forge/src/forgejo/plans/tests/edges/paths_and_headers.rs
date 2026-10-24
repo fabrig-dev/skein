@@ -171,7 +171,7 @@ fn branch_and_contents_404_keep_the_row() {
 
 #[test]
 fn repository_404_drops_the_row() {
-    for read in [Read::Settings, Read::Branches, Read::Item { number: 1, after: 0 }] {
+    for read in [Read::Settings, Read::Item { number: 1, after: 0 }] {
         let mut run = Run::known(Op::Read(read));
         run.begin();
         assert_eq!(run.answer(404, MISSING), Step::Done(Err(Error::Missing)));

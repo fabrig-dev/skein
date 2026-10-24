@@ -26,7 +26,7 @@ impl Plan {
                     | Read::Item { .. }
                     | Read::Locate { .. }
                     | Read::Settings
-                    | Read::Branches
+                    | Read::Branches { .. }
                     | Read::Pull { .. }
                     | Read::PullFor { .. }
                     | Read::Checks { .. }
@@ -58,7 +58,7 @@ impl Plan {
                 Read::Locate { .. }
                 | Read::Settings
                 | Read::Branch { .. }
-                | Read::Branches
+                | Read::Branches { .. }
                 | Read::Items { .. }
                 | Read::Item { .. }
                 | Read::Pull { .. }
@@ -87,7 +87,7 @@ impl Plan {
                 Read::Locate { .. }
                 | Read::Settings
                 | Read::Branch { .. }
-                | Read::Branches
+                | Read::Branches { .. }
                 | Read::Permission { .. }
                 | Read::File { .. }
                 | Read::Compare { .. }
@@ -133,7 +133,7 @@ impl Plan {
             Read::Items { .. }
             | Read::Item { .. }
             | Read::Branch { .. }
-            | Read::Branches
+            | Read::Branches { .. }
             | Read::Pull { .. }
             | Read::PullFor { .. }
             | Read::Checks { .. }
@@ -154,7 +154,7 @@ impl Plan {
             Read::Items { .. }
             | Read::Item { .. }
             | Read::Branch { .. }
-            | Read::Branches
+            | Read::Branches { .. }
             | Read::Pull { .. }
             | Read::PullFor { .. }
             | Read::Checks { .. }
@@ -183,9 +183,12 @@ impl Plan {
         }
     }
     fn branches_done(&mut self, bounds: Bounds) -> Result<Option<Step>, api::Error> {
-        if self.stage != Stage::Read || self.read != Read::Branches {
+        if self.stage != Stage::Read {
             return Err(api::Error::InvalidAnswer);
         }
+        let Read::Branches { .. } = &self.read else {
+            return Err(api::Error::InvalidAnswer);
+        };
         let next = match self.response {
             Response::Body { next } => next,
             Response::None | Response::Head | Response::Refusal { .. } => return Err(api::Error::InvalidAnswer),

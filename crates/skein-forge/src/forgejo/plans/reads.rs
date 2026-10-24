@@ -91,6 +91,11 @@ impl Plan {
         }
     }
     pub fn begin(&mut self, bounds: Bounds, _word: &[u8], tables: &mut Tables) -> Result<Step, api::Error> {
+        if let api::Read::Branches { prefix } = &self.read
+            && prefix.is_empty()
+        {
+            return Err(api::Error::Empty);
+        }
         self.row = tables.repository(self.repository).cloned();
         match &self.read {
             api::Read::Locate { owner, name } => {
@@ -107,7 +112,7 @@ impl Plan {
             | api::Read::Statuses { .. }
             | api::Read::Remarks { .. }
             | api::Read::Branch { .. }
-            | api::Read::Branches
+            | api::Read::Branches { .. }
             | api::Read::Protection { .. }
             | api::Read::Collaborators { .. }
             | api::Read::Permission { .. }
@@ -185,14 +190,14 @@ impl Plan {
                 Request::ReviewComments { at, number, review }
             }
             api::Read::Branch { branch: name } | api::Read::Protection { branch: name } => Request::Branch { at, name },
-            api::Read::Branches => {
+            api::Read::Branches { prefix } => {
                 let room = bounds
                     .answer_bytes
                     .checked_div(u32::try_from(crate::measure::STRING_BYTES).expect("box size"))
                     .expect("nonzero width");
                 self.rows = Rows::Branches(List::with_capacity(capacity.min(room)));
                 self.stage = Stage::Branches;
-                Request::Branches { at, page: self.paged(1, bounds) }
+                Request::Branches { at, prefix: Some(prefix), page: r::Page { page: None, limit: None } }
             }
             api::Read::Collaborators { page } => {
                 self.rows = Rows::Collaborators(List::with_capacity(bounds.page_size));
@@ -271,6 +276,9 @@ impl Plan {
         }
         match heard {
             Heard::Head { status, fields } => {
+                if self.stage == Stage::Branches && status == 404 {
+                    return self.terminal(api::Answer::Branches(Box::new([])), bounds);
+                }
                 if status != 200 {
                     let asked = if self.stage == Stage::Read
                         && let api::Read::Branch { .. } = self.read
@@ -395,7 +403,14 @@ impl Plan {
                     bounds,
                 )
             }
-            d::Row::Branch(branch) => self.append(api::Answer::Branches(Box::new([branch.name])), bounds),
+            d::Row::Branch(branch) => {
+                if let api::Read::Branches { prefix } = &self.read
+                    && !branch.name.starts_with(prefix)
+                {
+                    return Err(api::Error::InvalidAnswer);
+                }
+                self.append(api::Answer::Branches(Box::new([branch.name])), bounds)
+            }
             d::Row::Found(_)
             | d::Row::Reachable(_)
             | d::Row::Token(_)
@@ -427,7 +442,7 @@ impl Plan {
                 | api::Read::Statuses { .. }
                 | api::Read::Remarks { .. }
                 | api::Read::Branch { .. }
-                | api::Read::Branches
+                | api::Read::Branches { .. }
                 | api::Read::Protection { .. }
                 | api::Read::Settings
                 | api::Read::Collaborators { .. }

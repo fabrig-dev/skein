@@ -151,6 +151,7 @@ pub fn expected(answer: Answer) -> Document {
         | Answer::Pulls(_)
         | Answer::Reviews(_)
         | Answer::ReviewComments(_)
+        | Answer::BranchRefs(_)
         | Answer::Branches(_)
         | Answer::Protection(_)
         | Answer::Protections(_)

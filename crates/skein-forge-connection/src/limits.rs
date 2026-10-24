@@ -534,7 +534,8 @@ pub fn documents(l: &Limits) -> documents::Limits {
     documents::Limits {
         json: tokenizer::Limits {
             depth: l.depth,
-            string: l.body_bytes.max(l.string_bytes),
+            // A refs row carries the branch name after "refs/heads/".
+            string: l.body_bytes.max(l.string_bytes.saturating_add(11)),
             number: 32,
             chunk: l.chunk,
             length: l.body_bytes_in,

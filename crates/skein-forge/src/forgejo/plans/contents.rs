@@ -59,7 +59,7 @@ impl Plan {
             | api::Read::Statuses { .. }
             | api::Read::Remarks { .. }
             | api::Read::Branch { .. }
-            | api::Read::Branches
+            | api::Read::Branches { .. }
             | api::Read::Protection { .. }
             | api::Read::Settings
             | api::Read::Collaborators { .. }

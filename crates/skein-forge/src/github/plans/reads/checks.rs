@@ -30,7 +30,7 @@ impl Plan {
             Read::Locate { .. }
             | Read::Settings
             | Read::Branch { .. }
-            | Read::Branches
+            | Read::Branches { .. }
             | Read::Items { .. }
             | Read::Item { .. }
             | Read::Pull { .. }

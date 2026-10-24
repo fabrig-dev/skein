@@ -165,7 +165,9 @@ pub fn decoder(request: &Request, limits: &Limits) -> Option<Decoder> {
         Request::Reviews { .. } => Kind::Review(ReviewKind::Reviews),
         Request::ReviewComments { .. } => Kind::Review(ReviewKind::Comments),
         Request::Branch { .. } | Request::CreateBranch { .. } => Kind::Branch(BranchKind::Branch),
-        Request::Branches { .. } => Kind::Branch(BranchKind::Branches),
+        Request::Branches { prefix, .. } => {
+            Kind::Branch(if prefix.is_some() { BranchKind::Refs } else { BranchKind::Branches })
+        }
         Request::Protection { .. } => Kind::Branch(BranchKind::Protection),
         Request::Protections { .. } => Kind::Branch(BranchKind::Protections),
         Request::Permission { .. } => Kind::Branch(BranchKind::Permission),

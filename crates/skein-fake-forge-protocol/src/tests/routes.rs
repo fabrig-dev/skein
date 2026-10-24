@@ -62,7 +62,7 @@ fn read_rows() -> [(Request, Route, Op); 26] {
             Route::Branch,
             Op::Read(Read::Branch { branch: boxed(b"main") }),
         ),
-        (Request::Branches { at: at(), page: p }, Route::Branches, Op::Git(a::Git::Clone)),
+        (Request::Branches { at: at(), prefix: None, page: p }, Route::Branches, Op::Git(a::Git::Clone)),
         (
             Request::Protection { at: at(), name: boxed(b"main") },
             Route::Protection,

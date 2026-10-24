@@ -90,6 +90,11 @@ impl Harness {
     pub fn new(config: Config) -> Self {
         Self::with(config, false)
     }
+    pub fn with_branches(branches: u32) -> Self {
+        let mut domain = fake_config();
+        domain.limits.branches = branches;
+        Self::with_config(config(), false, domain)
+    }
     pub fn hooked() -> Self {
         Self::with(hooked_config(), true)
     }

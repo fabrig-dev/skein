@@ -58,6 +58,7 @@ fn read(value: &Read) -> Option<u64> {
     match value {
         Read::Locate { owner, name } => bytes(owner)?.checked_add(bytes(name)?),
         Read::File { path, .. } => bytes(path),
+        Read::Branches { prefix } => bytes(prefix),
         Read::PullFor { head, base } => bytes(head)?.checked_add(bytes(base)?),
         Read::Branch { branch } | Read::Protection { branch } => bytes(branch),
         Read::Items { .. }
@@ -71,7 +72,6 @@ fn read(value: &Read) -> Option<u64> {
         | Read::Pull { .. }
         | Read::Compare { .. }
         | Read::Checks { .. }
-        | Read::Branches
         | Read::Settings
         | Read::Permission { .. } => Some(0),
     }

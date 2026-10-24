@@ -95,7 +95,12 @@ fn target(request: &Request, out: &mut Target) {
             out.put(b"/branch_protections/");
             out.segment(name);
         }
-        Request::Branches { at, page } => {
+        Request::Branches { at, prefix: Some(prefix), .. } => {
+            out.repo(at);
+            out.put(b"/git/refs/heads/");
+            out.segment(prefix);
+        }
+        Request::Branches { at, prefix: None, page } => {
             out.repo(at);
             out.put(b"/branches");
             out.page(*page, false);

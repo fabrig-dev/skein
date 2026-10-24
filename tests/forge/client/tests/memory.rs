@@ -176,7 +176,7 @@ fn asked(op: &api::Op) -> Asked {
             api::Read::Compare { before, after } => Asked::Compare(*before, *after),
             api::Read::Locate { .. }
             | api::Read::PullFor { .. }
-            | api::Read::Branches
+            | api::Read::Branches { .. }
             | api::Read::Statuses { .. }
             | api::Read::Remarks { .. }
             | api::Read::PullFiles { .. }

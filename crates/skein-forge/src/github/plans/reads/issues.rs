@@ -44,7 +44,7 @@ impl Plan {
             Read::Locate { .. }
             | Read::Settings
             | Read::Branch { .. }
-            | Read::Branches
+            | Read::Branches { .. }
             | Read::Pull { .. }
             | Read::PullFor { .. }
             | Read::Checks { .. }
@@ -134,7 +134,7 @@ impl Plan {
                 | Read::Locate { .. }
                 | Read::Settings
                 | Read::Branch { .. }
-                | Read::Branches
+                | Read::Branches { .. }
                 | Read::Pull { .. }
                 | Read::PullFor { .. }
                 | Read::Checks { .. }
@@ -181,7 +181,7 @@ impl Plan {
             | Read::Locate { .. }
             | Read::Settings
             | Read::Branch { .. }
-            | Read::Branches
+            | Read::Branches { .. }
             | Read::Pull { .. }
             | Read::PullFor { .. }
             | Read::Checks { .. }
@@ -216,7 +216,7 @@ impl Plan {
             | Read::Locate { .. }
             | Read::Settings
             | Read::Branch { .. }
-            | Read::Branches
+            | Read::Branches { .. }
             | Read::Pull { .. }
             | Read::PullFor { .. }
             | Read::Checks { .. }
@@ -265,7 +265,7 @@ impl Plan {
             | Read::Locate { .. }
             | Read::Settings
             | Read::Branch { .. }
-            | Read::Branches
+            | Read::Branches { .. }
             | Read::Pull { .. }
             | Read::PullFor { .. }
             | Read::Checks { .. }

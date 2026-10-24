@@ -19,7 +19,14 @@ pub(super) fn route(method: Method, bytes: &[u8], limits: &Limits) -> Result<Rou
     }
     let at = Repo { owner: owner.clone(), name: name.clone() };
     let request = match tail {
-        [branches] if &**branches == b"branches" => Request::Branches { at, page: page(&target.query)? },
+        [git, refs, heads, prefix] if &**git == b"git" && &**refs == b"refs" && &**heads == b"heads" => {
+            Request::Branches {
+                at,
+                prefix: Some(prefix.clone()),
+                page: crate::forgejo::request::Page { page: None, limit: None },
+            }
+        }
+        [branches] if &**branches == b"branches" => Request::Branches { at, prefix: None, page: page(&target.query)? },
         [branches, name] if &**branches == b"branches" => Request::Branch { at, name: name.clone() },
         [rules] if &**rules == b"branch_protections" => Request::Protections { at },
         [rules, name] if &**rules == b"branch_protections" => Request::Protection { at, name: name.clone() },
@@ -87,6 +94,23 @@ pub(super) fn write(json: &mut Encoder, answer: &Answer) {
     match answer {
         Answer::Branch(value) => branch(json, value),
         Answer::Protection(value) => protection(json, value),
+        Answer::BranchRefs(values) => {
+            json.array_start();
+            for value in values {
+                json.object_start();
+                json.key(b"ref");
+                json.string_parts(&[b"refs/heads/", &value.name]);
+                json.key(b"object");
+                json.object_start();
+                json.key(b"type");
+                json.string(b"commit");
+                json.key(b"sha");
+                json.string(&id::write(&value.commit));
+                json.object_end();
+                json.object_end();
+            }
+            json.array_end();
+        }
         Answer::Branches(values) => {
             json.array_start();
             for value in values {

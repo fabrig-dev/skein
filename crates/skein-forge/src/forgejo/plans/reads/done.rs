@@ -99,7 +99,7 @@ impl Plan {
             | d::Document::Error(_) => Err(api::Error::InvalidAnswer),
         }
     }
-    fn terminal(&mut self, answer: api::Answer, bounds: Bounds) -> Result<Option<Step>, api::Error> {
+    pub(super) fn terminal(&mut self, answer: api::Answer, bounds: Bounds) -> Result<Option<Step>, api::Error> {
         let size = super::size::answer(&answer, bounds.rows)?;
         if size > u64::from(bounds.answer_bytes) {
             return Err(api::Error::TooLarge);
@@ -176,7 +176,7 @@ impl Plan {
             | api::Read::Statuses { .. }
             | api::Read::Remarks { .. }
             | api::Read::Branch { .. }
-            | api::Read::Branches
+            | api::Read::Branches { .. }
             | api::Read::Protection { .. }
             | api::Read::Collaborators { .. }
             | api::Read::Permission { .. }
@@ -201,7 +201,7 @@ impl Plan {
             | api::Read::Statuses { .. }
             | api::Read::Remarks { .. }
             | api::Read::Branch { .. }
-            | api::Read::Branches
+            | api::Read::Branches { .. }
             | api::Read::Protection { .. }
             | api::Read::Settings
             | api::Read::Collaborators { .. }
@@ -244,7 +244,7 @@ impl Plan {
             | api::Read::Reviews { .. }
             | api::Read::Statuses { .. }
             | api::Read::Remarks { .. }
-            | api::Read::Branches
+            | api::Read::Branches { .. }
             | api::Read::Settings
             | api::Read::Collaborators { .. }
             | api::Read::Permission { .. }
@@ -273,7 +273,7 @@ impl Plan {
                 | api::Read::Statuses { .. }
                 | api::Read::Remarks { .. }
                 | api::Read::Branch { .. }
-                | api::Read::Branches
+                | api::Read::Branches { .. }
                 | api::Read::Protection { .. }
                 | api::Read::Settings
                 | api::Read::Collaborators { .. }
@@ -301,11 +301,6 @@ impl Plan {
                 return Ok(Some(self.send(Request::Pulls { at: self.at(), page })));
             }
             return Ok(Some(self.pull_status()?));
-        }
-        if self.stage == Stage::Branches && self.count.saturating_add(skipped) >= self.limit {
-            let page = self.page.checked_add(1).ok_or(api::Error::TooLarge)?;
-            let page = self.paged(page, bounds);
-            return Ok(Some(self.send(Request::Branches { at: self.at(), page })));
         }
         if self.stage == Stage::Collaborators {
             self.more = self.count >= self.limit;
